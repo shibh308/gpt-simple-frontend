@@ -2,16 +2,16 @@
   <ul>
     <li v-for="(message, index) in messages" :key="index">
       <div v-if="message.role === 'user'" class="p-2 text-right">
-        <div class="bg-gray-600 rounded p-4 text-white inline-block border-l-4 border-blue-400 relative">
-          <button @click="edit(index)" class="far fa-pen-to-square absolute right-5 top-1 text-xs text-gray-400" />
-          <button @click="$emit('trash', index)" class="fas fa-trash-can absolute right-1 top-1 text-xs text-gray-400" />
-          <div class="whitespace-pre-wrap" v-if="editIndex !== index">{{ message.content }}</div>
+        <div class="bg-gray-600 rounded px-4 pt-5 pb-4 text-white inline-block border-l-4 border-blue-400 relative">
+          <button @click="$emit('trash', index)" class="fas fa-trash-can absolute left-1 top-1 text-xs text-gray-400" />
+          <button @click="edit(index, false)" class="far fa-pen-to-square absolute left-5 top-1 text-xs text-gray-400" />
+          <div class="whitespace-pre-wrap text-left" v-if="editIndex !== index">{{ message.content }}</div>
           <div v-if="editIndex === index" class="flex flex-col">
             <textarea v-model="edittingMessage" class="border-gray-00 bg-gray-700 border-wi rounded border-2 px-2 py-2 resize-none" style="width: 50vw; height: 10em" type="text" />
             <div class="p-1 self-end">
               <button
                 class="flex px-4 py-2 bg-gray-800 text-white rounded font-semibold text-sm"
-                @click="edit(index)"
+                @click="edit(index, true)"
                 v-if="!asking"
               >
                 Update
@@ -21,9 +21,9 @@
         </div>
       </div>
       <div v-if="message.role === 'assistant'" class="p-2">
-        <div class="bg-gray-600 rounded p-4 text-white inline-block border-l-4 border-green-400 relative">
+        <div class="bg-gray-600 rounded px-4 pt-5 pb-4 text-white inline-block border-l-4 border-green-400 relative">
           <button @click="$emit('toggle', index)" class="fas fa-code absolute left-1 top-1 text-xs text-gray-400" />
-          <button @click="edit(index)" class="far fa-pen-to-square absolute left-6 top-1 text-xs text-gray-400" v-if="message.raw" />
+          <button @click="edit(index, false)" class="far fa-pen-to-square absolute left-5 top-1 text-xs text-gray-400" v-if="message.raw" />
           <div class="markdown-content prose" v-html="renderedMarkdown(message.content)" v-if="!message.raw" />
           <pre class="whitespace-pre-wrap" v-if="message.raw && editIndex !== index"><div>{{ message.content }}</div></pre>
           <div v-if="editIndex === index" class="flex flex-col">
@@ -31,7 +31,7 @@
             <div class="p-1 self-end">
               <button
                 class="flex px-4 py-2 bg-gray-800 text-white rounded font-semibold text-sm"
-                @click="edit(index)"
+                @click="edit(index, true)"
                 v-if="!asking"
               >
                 Update
@@ -160,7 +160,7 @@ export default class ChatLog extends Vue {
           <div class="flex-grow inline-block text-left ml-1">${lang}</div>
           <button class="fas fa-copy mr-2" id="copyButton-${hash}" />
         </div>
-        <pre class="bg-gray-950 rounded-b p-2 flex"><code class=language-${lang} overflow-x-scroll max-w-2xl text-left codeblock">${code}</code></pre>
+        <pre class="bg-gray-950 rounded-b p-2 flex whitespace-pre-wrap"><code class=language-${lang} overflow-x-scroll max-w-2xl text-left">${code}</code></pre>
       </div>
       `;
     };
@@ -172,29 +172,30 @@ export default class ChatLog extends Vue {
 
     const markdown = marked(this.katexReplace(content));
 
-    return markdown;
+    return markdown.replace(/(<br>\s*)+$/, '');
   }
 
-  edit(index: number) {
+  edit(index: number, fromButton: boolean) {
     if (this.editIndex === -1) {
       this.editIndex = index;
       this.edittingMessage = this.messages[index].content;
-      console.log(this.renderedMarkdown(this.messages[index].content));
     } else {
       if(this.editIndex !== index) {
         return;
       }
       this.messages[index].content = this.edittingMessage;
-      this.messages[index].raw = false;
       this.editIndex = -1;
+      if (fromButton) {
+        this.messages[index].raw = false;
+      }
       this.$emit('edit');
     }
   }
 
   katexReplace(text: string) {
-    const regex = /(```[\s\S]*?```|\\\[[\s\S]*?\\\]|(?<=(^|\r|\n|\r\n)\s*?)\$\$[\s\S]*?\$\$(?=\s*?($|\r|\n|\r\n))|(?<=(^|\r|\n|\r\n)\s*?)\\\[[\s\S]*?\\\](?=\s*?($|\r|\n|\r\n))|(\$[^\r\n]+?\$))/g;
+    const regex = /(```[\s\S]*?```|`[\s\S]*?`|\\\[[\s\S]*?\\\]|(?<=(^|\r|\n|\r\n)\s*?)\$\$[\s\S]*?\$\$(?=\s*?($|\r|\n|\r\n))|(?<=(^|\r|\n|\r\n)\s*?)\\\[[\s\S]*?\\\](?=\s*?($|\r|\n|\r\n))|(\$[^\r\n]+?\$))/g;
     return text.replace(regex, match => {
-      if (match.startsWith("```")) {
+      if (match.startsWith("```") || match.startsWith("`")) {
         return match;
       }
       let mathExpr = match;

@@ -77,6 +77,7 @@
     <div class="fixed top-0 left-0 w-full h-full flex justify-center items-center bg-gray-900 bg-opacity-50" v-if="renameModalVisible">
       <div class="bg-gray-800 rounded p-4">
         <input
+          id="renameModalInput"
           ref="inputTextarea"
           v-model="logName"
           class="text-white bg-gray-700 rounded px-4 py-2 mb-4 focus:outline-none"
@@ -126,11 +127,8 @@ class ChatLogData {
 })
 
 export default class App extends Vue {
+  chatLogDatas: ChatLogData[] = [];
   activeIndex: number = 0;
-  chatLogDatas: ChatLogData[] = [
-    new ChatLogData('Test0', [{role: 'user', content: 'hi', raw: false}, {role: 'assistant', content: '```python\ndef f(x):\n\tx = x * 2\n```', raw: false}]),
-    new ChatLogData('テスト', [{role: 'user', content: 'hi', raw: false}, {role: 'assistant', content: '```python\ndef f(x):\n\tx = x * 2\n```', raw: false}])
-  ];
   prompt: string = '';
   textRows: number = 1;
   logName: string = '';
@@ -142,10 +140,34 @@ export default class App extends Vue {
   gpt4 = false;
 
   mounted() {
-    this.loadChatLogs();
+    this.loadFromStorage();
     this.$nextTick(() => {
       this.scroll();
     });
+    this.$watch('activeIndex', (value) => {localStorage.setItem('activeIndex', value);});
+    this.$watch('gpt4', (value) => {localStorage.setItem('gpt4', value);});
+    this.$watch('useContext', (value) => {localStorage.setItem('useContext', value);});
+  }
+
+  loadFromStorage() {
+    const activeIndex = localStorage.getItem('activeIndex');
+    if (activeIndex) {
+      const parsedActiveIndex = parseInt(activeIndex);
+      if(parsedActiveIndex !== null) {
+        this.activeIndex = parsedActiveIndex;
+      }
+    }
+    this.useContext = localStorage.getItem('useContext') === 'true';
+    this.gpt4 = localStorage.getItem('gpt4') === 'true';
+    this.loadChatLogs();
+  }
+
+  loadChatLogs() {
+    const logData = localStorage.getItem('chatLogDatas');
+    if (!logData) {
+      return;
+    }
+    this.chatLogDatas = JSON.parse(logData);
   }
 
   openModal() {
@@ -157,11 +179,17 @@ export default class App extends Vue {
   }
 
   handleSelected(index: number) {
+    if (this.asking) {
+      return;
+    }
     this.activeIndex = index;
     this.updateLogNameVariable();
   }
 
   handleTrashSidebar(index: number) {
+    if (this.asking) {
+      return;
+    }
     this.chatLogDatas.splice(index, 1);
     if (this.activeIndex === index) {
       if (this.activeIndex === 0) {
@@ -179,10 +207,16 @@ export default class App extends Vue {
   }
 
   handleRename() {
+    if (this.asking) {
+      return;
+    }
     this.renameModalVisible = true;
   }
 
   handleDuplicate(index: number) {
+    if (this.asking) {
+      return;
+    }
     this.activeIndex = index;
     this.chatLogDatas.splice(this.activeIndex + 1, 0, this.chatLogDatas[this.activeIndex]);
     this.activeIndex += 1;
@@ -223,17 +257,12 @@ export default class App extends Vue {
   }
 
   newChat() {
+    if (this.asking) {
+      return;
+    }
     this.chatLogDatas.splice(this.activeIndex + 1, 0, new ChatLogData('New Chat', []));
     this.activeIndex += 1;
     this.saveChatLogs();
-  }
-
-  loadChatLogs() {
-    const logData = localStorage.getItem('chatLogDatas');
-    if (!logData) {
-      return;
-    }
-    this.chatLogDatas = JSON.parse(logData);
   }
 
   saveChatLogs() {
@@ -241,8 +270,8 @@ export default class App extends Vue {
   }
 
   addContent(content: string) {
-    const msg_len = this.chatLogDatas[this.activeIndex].messages.length;
-    this.chatLogDatas[this.activeIndex].messages[msg_len - 1].content += content;
+    const msgLength = this.chatLogDatas[this.activeIndex].messages.length;
+    this.chatLogDatas[this.activeIndex].messages[msgLength - 1].content += content;
   }
 
   async ask(msg: string) {
