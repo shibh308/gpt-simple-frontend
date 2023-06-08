@@ -33,7 +33,10 @@
       <div class="flex-1 h-full flex flex-col">
         <div class="flex-grow overflow-auto" ref="messageContainer">
           <div v-for="(chatLog, index) in chatLogDatas" :key="index">
-            <ChatLog v-if="index === activeIndex" :id="index" :messages="chatLog.messages" @trash="handleTrash(index, $event)" @toggle="handleRawMode(index, $event)" @edit="handleEdit" />
+            <ChatLog v-if="index === activeIndex" :id="index" :messages="chatLog.messages" :asking="asking"
+             @trash="handleTrash(index, $event)" @interrupt="interruptPrompt"
+             @regenerate="handleRegenerate" @continue="handleContinue"
+             @toggle="handleRawMode(index, $event)" @edit="handleEdit" />
           </div>
         </div>
         <div class="flex-none bottom-0 bg-gray-700">
@@ -274,25 +277,12 @@ export default class App extends Vue {
     this.chatLogDatas[this.activeIndex].messages[msgLength - 1].content += content;
   }
 
-  async ask(msg: string) {
-    if (!msg) {
-      return;
-    }
-
+  async ask(messages: Message[]) {
     const storedApiKey = localStorage.getItem('api-key');
-    if (storedApiKey == null) {
+    if (storedApiKey === null) {
       alert('Please set your API key first.');
       return;
     }
-
-    this.asking = true;
-    this.chatLogDatas[this.activeIndex].messages.push({role: 'user', content: msg, raw: false});
-    this.chatLogDatas[this.activeIndex].messages.push({role: 'assistant', content: '', raw: false});
-    
-    const messages = this.useContext
-                   ? this.chatLogDatas[this.activeIndex].messages.map(({role, content}) => ({role, content}))
-                   : [{ role: "user", content: this.prompt  }];
-
     const apiKey: string  = storedApiKey;
     await fetch('https://api.openai.com/v1/chat/completions', {
       headers: {
@@ -301,7 +291,7 @@ export default class App extends Vue {
       },
       method: 'POST',
       body: JSON.stringify({
-        messages: messages,
+        messages: messages.map(({role, content}) => ({'role': role, 'content': content})),
         model: this.gpt4 ? 'gpt-4' : 'gpt-3.5-turbo',
         stream: true
       })
@@ -364,6 +354,31 @@ export default class App extends Vue {
     this.interrupt = true;
   }
 
+  async handleRegenerate() {
+    if(this.chatLogDatas.length === 0) {
+      return;
+    }
+    this.asking = true;
+    this.chatLogDatas[this.activeIndex].messages.pop();
+    this.chatLogDatas[this.activeIndex].messages.push({role: 'assistant', content: '', raw: false});
+    const beforePrompt = this.chatLogDatas[this.activeIndex].messages[this.chatLogDatas[this.activeIndex].messages.length - 2];
+    const messages = this.useContext
+                   ? this.chatLogDatas[this.activeIndex].messages
+                   : [beforePrompt];
+    this.ask(messages);
+  }
+
+  async handleContinue() {
+    if(this.chatLogDatas.length === 0) {
+      return;
+    }
+    this.asking = true;
+    const messages = this.useContext
+                   ? this.chatLogDatas[this.activeIndex].messages
+                   : this.chatLogDatas[this.activeIndex].messages.slice(-2);
+    this.ask(messages);
+  }
+
   async sendPrompt(e: Event) {
 
     e.preventDefault();
@@ -376,7 +391,19 @@ export default class App extends Vue {
       return;
     }
 
-    this.ask(this.prompt);
+    if (!this.prompt) {
+      return;
+    }
+
+    this.asking = true;
+    this.chatLogDatas[this.activeIndex].messages.push({role: 'user', content: this.prompt, raw: false});
+    this.chatLogDatas[this.activeIndex].messages.push({role: 'assistant', content: '', raw: false});
+
+    const messages = this.useContext
+                   ? this.chatLogDatas[this.activeIndex].messages
+                   : [{ role: "user", content: this.prompt, raw: false }];
+
+    this.ask(messages);
 
     this.prompt = '';
     this.textRows = 1;

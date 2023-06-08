@@ -24,6 +24,9 @@
         <div class="bg-gray-600 rounded px-4 pt-5 pb-4 text-white inline-block border-l-4 border-green-400 relative">
           <button @click="$emit('toggle', index)" class="fas fa-code absolute left-1 top-1 text-xs text-gray-400" />
           <button @click="edit(index, false)" class="far fa-pen-to-square absolute left-5 top-1 text-xs text-gray-400" v-if="message.raw" />
+          <button @click="$emit('regenerate')" class="fas fa-repeat absolute right-1 bottom-1 text-xs text-gray-400" v-if="index + 1 === messages.length && !asking" />
+          <button @click="$emit('continue')" class="fas fa-play absolute right-5 bottom-1 text-xs text-gray-400" v-if="index + 1 === messages.length && !asking" />
+          <button @click="$emit('interrupt')" class="fas fa-pause absolute right-1 bottom-1 text-xs text-gray-400" v-if="index + 1 === messages.length && asking" />
           <div class="markdown-content prose" v-html="renderedMarkdown(message.content)" v-if="!message.raw" />
           <pre class="whitespace-pre-wrap" v-if="message.raw && editIndex !== index"><div>{{ message.content }}</div></pre>
           <div v-if="editIndex === index" class="flex flex-col">
@@ -62,6 +65,7 @@ type Message = {
 
 export default class ChatLog extends Vue {
   @Prop() messages!: Message[];
+  @Prop() asking!: boolean;
 
   codes: Map<string, string> = new Map();
   eventListeners: Map<string, () => void> = new Map();
