@@ -1,24 +1,6 @@
-# openai-api-web
+# gpt-simple-frontend
 
-## Project setup
-```
-npm install
-```
+[![GitHub Pages](https://img.shields.io/badge/GitHub-Pages-brightgreen?logo=github)](https://https://shibh308.github.io/gpt-simple-frontend/)
 
-### Compiles and hot-reloads for development
-```
-npm run serve
-```
-
-### Compiles and minifies for production
-```
-npm run build
-```
-
-### Lints and fixes files
-```
-npm run lint
-```
-
-### Customize configuration
-See [Configuration Reference](https://cli.vuejs.org/config/).
+A simple frontend for [OpenAI API](https://openai.com/blog/openai-api).
+All data is saved in the browser's localStorage.
