@@ -13,7 +13,8 @@
         <div v-for="(chatLog, index) in chatLogDatas" :key="index">
           <SideBarElement :title="chatLog.title" :index="index" :selected="index === this.activeIndex"
            @selected="handleSelected(index)" @delete="handleTrashSidebar(index)"
-           @rename="handleRename" @duplicate="handleDuplicate(index)" />
+           @rename="handleRename" @duplicate="handleDuplicate(index)"
+            />
         </div>
       </div>
       <div class="sticky bottom-0">
@@ -32,7 +33,7 @@
       <div class="flex-1 h-full flex flex-col">
         <div class="flex-grow overflow-auto" ref="messageContainer">
           <div v-for="(chatLog, index) in chatLogDatas" :key="index">
-            <ChatLog v-if="index === activeIndex" :id="index" :messages="chatLog.messages" @trash="handleTrash(index, $event)" @toggle="handleRawMode(index, $event)" />
+            <ChatLog v-if="index === activeIndex" :id="index" :messages="chatLog.messages" @trash="handleTrash(index, $event)" @toggle="handleRawMode(index, $event)" @edit="handleEdit" />
           </div>
         </div>
         <div class="flex-none bottom-0 bg-gray-700">
@@ -204,8 +205,6 @@ export default class App extends Vue {
     if (this.asking) {
       return;
     }
-    console.log(index);
-    console.log(msgIndex);
     const msgs =this.chatLogDatas[index].messages;
     msgs.splice(msgIndex, 1);
     while (msgIndex < msgs.length && msgs[msgIndex].role == 'assistant') {
@@ -219,8 +218,13 @@ export default class App extends Vue {
     this.chatLogDatas[index].messages[msgIndex].raw = !this.chatLogDatas[index].messages[msgIndex].raw;
   }
 
+  handleEdit() {
+    this.saveChatLogs();
+  }
+
   newChat() {
-    this.chatLogDatas.push(new ChatLogData('New Chat', []));
+    this.chatLogDatas.splice(this.activeIndex + 1, 0, new ChatLogData('New Chat', []));
+    this.activeIndex += 1;
     this.saveChatLogs();
   }
 

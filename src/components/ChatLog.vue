@@ -3,15 +3,41 @@
     <li v-for="(message, index) in messages" :key="index">
       <div v-if="message.role === 'user'" class="p-2 text-right">
         <div class="bg-gray-600 rounded p-4 text-white inline-block border-l-4 border-blue-400 relative">
+          <button @click="edit(index)" class="far fa-pen-to-square absolute right-5 top-1 text-xs text-gray-400" />
           <button @click="$emit('trash', index)" class="fas fa-trash-can absolute right-1 top-1 text-xs text-gray-400" />
-          <div class="markdown-content prose" v-html="renderedMarkdown(message.content)" v-if="!message.raw" />
+          <div class="whitespace-pre-wrap" v-if="editIndex !== index">{{ message.content }}</div>
+          <div v-if="editIndex === index" class="flex flex-col">
+            <textarea v-model="edittingMessage" class="border-gray-00 bg-gray-700 border-wi rounded border-2 px-2 py-2 resize-none" style="width: 50vw; height: 10em" type="text" />
+            <div class="p-1 self-end">
+              <button
+                class="flex px-4 py-2 bg-gray-800 text-white rounded font-semibold text-sm"
+                @click="edit(index)"
+                v-if="!asking"
+              >
+                Update
+              </button>
+            </div>
+          </div>
         </div>
       </div>
       <div v-if="message.role === 'assistant'" class="p-2">
         <div class="bg-gray-600 rounded p-4 text-white inline-block border-l-4 border-green-400 relative">
           <button @click="$emit('toggle', index)" class="fas fa-code absolute left-1 top-1 text-xs text-gray-400" />
+          <button @click="edit(index)" class="far fa-pen-to-square absolute left-6 top-1 text-xs text-gray-400" v-if="message.raw" />
           <div class="markdown-content prose" v-html="renderedMarkdown(message.content)" v-if="!message.raw" />
-          <pre><div v-if="message.raw">{{ message.content }}</div></pre>
+          <pre class="whitespace-pre-wrap" v-if="message.raw && editIndex !== index"><div>{{ message.content }}</div></pre>
+          <div v-if="editIndex === index" class="flex flex-col">
+            <textarea v-model="edittingMessage" class="border-gray-00 bg-gray-700 border-wi rounded border-2 px-2 py-2 resize-none" style="width: 50vw; height: 10em" type="text" />
+            <div class="p-1 self-end">
+              <button
+                class="flex px-4 py-2 bg-gray-800 text-white rounded font-semibold text-sm"
+                @click="edit(index)"
+                v-if="!asking"
+              >
+                Update
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </li>
@@ -22,9 +48,11 @@
 import { marked } from 'marked';
 import { Vue } from 'vue-class-component';
 import { Prop } from 'vue-property-decorator';
+import katex from 'katex';
 import { Md5 } from 'ts-md5';
 import hljs from 'highlight.js';
 import 'highlight.js/styles/darcula.css';
+import 'katex/dist/katex.min.css'
 
 type Message = {
   role: string
@@ -37,14 +65,13 @@ export default class ChatLog extends Vue {
 
   codes: Map<string, string> = new Map();
   eventListeners: Map<string, () => void> = new Map();
+  editIndex: number = -1;
+  edittingMessage: string = "";
 
   renderedMarkdown(content: string): string {
-    const markdown = marked(content);
-
     const renderer = new marked.Renderer();
 
     renderer.heading = (text, level) => {
-      console.log(level);
       const classLevel = (() => 
       {
         switch (level) {
@@ -65,18 +92,18 @@ export default class ChatLog extends Vue {
         }
       })();
       return `<h${level} class="${classLevel}">${text}</h${level}>\n`;
-    }
+    };
 
     renderer.list = (body, ordered, start) => {
       const type = ordered ? 'ol' : 'ul';
       const startatt = (ordered && start !== 1) ? (' start="' + start + '"') : '';
       const listClass = ordered ? "list-decimal" : "list-disc";
       return '<' + type + startatt + ` class="${listClass} ml-2 mt-2 mb-2"` + '>\n' + body + '</' + type + '>\n';
-    }
+    };
 
     renderer.listitem = (text) => {
       return `<li class="font-normal ml-4">${text}</li>\n`;
-    }
+    };
         
     renderer.table = (header, body) => {
       return `
@@ -91,11 +118,11 @@ export default class ChatLog extends Vue {
         </div>
       </div>
       `;
-    }
+    };
 
     renderer.tablerow = (content) => {
       return `<tr>\n${content}</tr>\n`;
-    }
+    };
 
     renderer.tablecell = (content, flags) => {
       const type = flags.header ? 'th' : 'td';
@@ -104,11 +131,17 @@ export default class ChatLog extends Vue {
         ? `<${type} class="${cellClass}" align="${flags.align}">`
         : `<${type} class="${cellClass}">`;
       return tag + content + `</${type}>\n`;
-    }
+    };
 
     renderer.codespan = (text) => {
-      return ` <code class="bg-gray-700 p-1 rounded">${text}</code> `;
+      return ` <code class="bg-gray-700 p-1 rounded font-bold">${text}</code> `;
+    };
+
+    renderer.paragraph = (text) => {
+      return `<p>${text}</p><br>`;
     }
+
+    renderer.br = () => '<br>';
 
     renderer.code = (code, lang) => {
       const hash = Md5.hashStr(code + '_md5');
@@ -117,7 +150,9 @@ export default class ChatLog extends Vue {
         code = hljs.highlight(lang, code).value.trim();
       }
       else {
-        code = hljs.highlightAuto(code).value.trim();
+        const highlightResult = hljs.highlightAuto(code);
+        code = highlightResult.value.trim();
+        lang = highlightResult.language;
       }
       return `
       <div class="p-2">
@@ -131,17 +166,74 @@ export default class ChatLog extends Vue {
     };
 
     marked.setOptions({
+      breaks: true,
       renderer: renderer
     });
 
+    const markdown = marked(this.katexReplace(content));
+
     return markdown;
   }
+
+  edit(index: number) {
+    if (this.editIndex === -1) {
+      this.editIndex = index;
+      this.edittingMessage = this.messages[index].content;
+      console.log(this.renderedMarkdown(this.messages[index].content));
+    } else {
+      if(this.editIndex !== index) {
+        return;
+      }
+      this.messages[index].content = this.edittingMessage;
+      this.messages[index].raw = false;
+      this.editIndex = -1;
+      this.$emit('edit');
+    }
+  }
+
+  katexReplace(text: string) {
+    const regex = /(```[\s\S]*?```|\\\[[\s\S]*?\\\]|(?<=(^|\r|\n|\r\n)\s*?)\$\$[\s\S]*?\$\$(?=\s*?($|\r|\n|\r\n))|(?<=(^|\r|\n|\r\n)\s*?)\\\[[\s\S]*?\\\](?=\s*?($|\r|\n|\r\n))|(\$[^\r\n]+?\$))/g;
+    return text.replace(regex, match => {
+      if (match.startsWith("```")) {
+        return match;
+      }
+      let mathExpr = match;
+      if (match === "$$") {
+        mathExpr = "";
+      } else if (match.startsWith("$$") && match.trim().endsWith("$$")) {
+        mathExpr = match.trim().substring(2, match.length - 2);
+      } else if (match.startsWith("$") && match.trim().endsWith("$")) {
+        mathExpr = match.trim().substring(1, match.length - 1);
+      } else if (match.startsWith("\\[") && match.endsWith("\\]")) {
+        mathExpr = match.substring(2, match.length - 2);
+      }
+      if (!mathExpr) {
+        return mathExpr;
+      }
+      return katex.renderToString(mathExpr, {throwOnError: false});
+    });
+  }
+    /*
+    if (expr.match(/^\$\$[\s\S]*\$\$$/)) {
+      expr = expr.substr(2, expr.length - 4)
+      return katex.renderToString(expr, { displayMode: true, noannotation: true, throwOnError: false })
+    } else if (expr.match(/^\$[\s\S]*\$$/)) {
+      expr = expr.substr(1, expr.length - 2)
+      return katex.renderToString(expr, { isplayMode: false })
+    } else if (expr.match(/^\\\[[\s\S]*\\\]$/)) {
+      expr = expr.substr(2, expr.length - 4);
+      return katex.renderToString(expr, { displayMode: true, noannotation: true });
+    }
+    */
+
   mounted() {
     this.setCopyButton();
   }
+
   updated() {
     this.setCopyButton();
   }
+
   setCopyButton() {
     const copyButtons = document.querySelectorAll('[id^="copyButton-"]');
     copyButtons.forEach((copyButton) => {
