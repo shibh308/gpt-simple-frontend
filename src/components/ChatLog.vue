@@ -4,14 +4,14 @@
       <div v-if="message.role === 'user'" class="p-2 text-right">
         <div class="bg-gray-600 rounded p-4 text-white inline-block border-l-4 border-blue-400 relative">
           <button @click="$emit('trash', index)" class="fas fa-trash-can absolute right-1 top-1 text-xs text-gray-400" />
-          <div class="markdown-content prose" v-html="renderedMarkdown(message.content)" v-if=!message.raw />
+          <div class="markdown-content prose" v-html="renderedMarkdown(message.content)" v-if="!message.raw" />
         </div>
       </div>
       <div v-if="message.role === 'assistant'" class="p-2">
         <div class="bg-gray-600 rounded p-4 text-white inline-block border-l-4 border-green-400 relative">
           <button @click="$emit('toggle', index)" class="fas fa-code absolute left-1 top-1 text-xs text-gray-400" />
-          <div class="markdown-content prose" v-html="renderedMarkdown(message.content)" v-if=!message.raw />
-          <pre><div v-if=message.raw>{{ message.content }}</div></pre>
+          <div class="markdown-content prose" v-html="renderedMarkdown(message.content)" v-if="!message.raw" />
+          <pre><div v-if="message.raw">{{ message.content }}</div></pre>
         </div>
       </div>
     </li>
@@ -112,15 +112,20 @@ export default class ChatLog extends Vue {
 
     renderer.code = (code, lang) => {
       const hash = Md5.hashStr(code + '_md5');
-      this.codes.set(hash ,code);
-      code = hljs.highlightAuto(code).value.trim();
+      this.codes.set(hash, code);
+      if (lang) {
+        code = hljs.highlight(lang, code).value.trim();
+      }
+      else {
+        code = hljs.highlightAuto(code).value.trim();
+      }
       return `
       <div class="p-2">
         <div class="flex bg-gray-700 rounded-t p-1 text-sm">
           <div class="flex-grow inline-block text-left ml-1">${lang}</div>
           <button class="fas fa-copy mr-2" id="copyButton-${hash}" />
         </div>
-        <pre class="bg-gray-950 rounded-b p-2 flex><code class=language-${lang} overflow-x-scroll max-w-2xl text-left codeblock">${code}</code></pre>
+        <pre class="bg-gray-950 rounded-b p-2 flex"><code class=language-${lang} overflow-x-scroll max-w-2xl text-left codeblock">${code}</code></pre>
       </div>
       `;
     };
@@ -160,7 +165,6 @@ export default class ChatLog extends Vue {
     });
   }
 }
-
 </script>
 
 <style>
@@ -176,5 +180,4 @@ a {
 ::-webkit-scrollbar-thumb:hover {
   background-color: #6b7280;
 }
-
 </style>

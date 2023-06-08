@@ -11,7 +11,9 @@
       </div>
       <div class="p-4 flex-1 w-full">
         <div v-for="(chatLog, index) in chatLogDatas" :key="index">
-          <SideBarElement :title="chatLog.title" :index="index" :selected="index === this.activeIndex" @selected="handleSelected(index)" @delete="handleTrashSidebar(index)" @rename="handleRename" />
+          <SideBarElement :title="chatLog.title" :index="index" :selected="index === this.activeIndex"
+           @selected="handleSelected(index)" @delete="handleTrashSidebar(index)"
+           @rename="handleRename" @duplicate="handleDuplicate(index)" />
         </div>
       </div>
       <div class="sticky bottom-0">
@@ -27,13 +29,13 @@
       </div>
     </div>
     <div class="flex-1 flex-col h-full bg-gray-700 p-4">
-      <div class="flex-1 h-full overflow-auto">
-        <div class="h-full overflow-auto" ref="messageContainer">
+      <div class="flex-1 h-full flex flex-col">
+        <div class="flex-grow overflow-auto" ref="messageContainer">
           <div v-for="(chatLog, index) in chatLogDatas" :key="index">
             <ChatLog v-if="index === activeIndex" :id="index" :messages="chatLog.messages" @trash="handleTrash(index, $event)" @toggle="handleRawMode(index, $event)" />
           </div>
         </div>
-        <div class="bottom-0 bg-gray-700">
+        <div class="flex-none bottom-0 bg-gray-700">
           <div class="ml-3 text-sm text-gray-300 flex items-center">
             <input type="checkbox" class="form-checkbox h-3 w-3 mr-1 bg-gray-500 border-gray-700 text-gray-900 rounded" v-model="useContext">
             use context
@@ -155,12 +157,10 @@ export default class App extends Vue {
 
   handleSelected(index: number) {
     this.activeIndex = index;
+    this.updateLogNameVariable();
   }
 
   handleTrashSidebar(index: number) {
-    if (index < this.activeIndex) {
-      this.activeIndex -= 1;
-    }
     this.chatLogDatas.splice(index, 1);
     if (this.activeIndex === index) {
       if (this.activeIndex === 0) {
@@ -170,6 +170,10 @@ export default class App extends Vue {
         this.activeIndex -= 1;
       }
     }
+    if (index < this.activeIndex) {
+      this.activeIndex -= 1;
+    }
+    this.updateLogNameVariable();
     this.saveChatLogs();
   }
 
@@ -177,9 +181,23 @@ export default class App extends Vue {
     this.renameModalVisible = true;
   }
 
+  handleDuplicate(index: number) {
+    this.activeIndex = index;
+    this.chatLogDatas.splice(this.activeIndex + 1, 0, this.chatLogDatas[this.activeIndex]);
+    this.activeIndex += 1;
+    this.updateLogNameVariable();
+    this.saveChatLogs();
+  }
+
   saveLogName() {
     this.chatLogDatas[this.activeIndex].title = this.logName;
     this.renameModalVisible = false;
+  }
+
+  updateLogNameVariable() {
+    if (this.chatLogDatas[this.activeIndex]) {
+      this.logName = this.chatLogDatas[this.activeIndex].title;
+    }
   }
 
   handleTrash(index: number, msgIndex: number) {
