@@ -264,7 +264,9 @@ export default class App extends Vue {
       return;
     }
     this.chatLogDatas.splice(this.activeIndex + 1, 0, new ChatLogData('New Chat', []));
-    this.activeIndex += 1;
+    if (this.activeIndex + 1 < this.chatLogDatas.length) {
+      this.activeIndex += 1;
+    }
     this.saveChatLogs();
   }
 
@@ -279,7 +281,7 @@ export default class App extends Vue {
 
   async ask(messages: Message[]) {
     const storedApiKey = localStorage.getItem('api-key');
-    if (storedApiKey === null) {
+    if (!storedApiKey) {
       alert('Please set your API key first.');
       return;
     }
@@ -345,7 +347,7 @@ export default class App extends Vue {
         this.saveChatLogs();
       })
     }).catch(error => {
-      alert(error.message);
+      alert(`OpenAI API error: ${error.message}`);
       this.asking = false;
     });
   }
@@ -355,7 +357,11 @@ export default class App extends Vue {
   }
 
   async handleRegenerate() {
-    if(this.chatLogDatas.length === 0) {
+    if(this.chatLogDatas.length === 0 || this.asking) {
+      return;
+    }
+    if (localStorage.getItem('api-key') === null) {
+      alert('Please set your API key.');
       return;
     }
     this.asking = true;
@@ -369,7 +375,11 @@ export default class App extends Vue {
   }
 
   async handleContinue() {
-    if(this.chatLogDatas.length === 0) {
+    if(this.chatLogDatas.length === 0 || this.asking) {
+      return;
+    }
+    if (!localStorage.getItem('api-key')) {
+      alert('Please set your API key.');
       return;
     }
     this.asking = true;
@@ -384,10 +394,15 @@ export default class App extends Vue {
     e.preventDefault();
 
     if (this.chatLogDatas.length === 0) {
+      alert('Please create new chat.');
+      return;
+    }
+    if (this.asking) {
       return;
     }
 
-    if (this.asking) {
+    if (!localStorage.getItem('api-key')) {
+      alert('Please set your API key.');
       return;
     }
 
