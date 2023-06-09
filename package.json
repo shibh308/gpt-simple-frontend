@@ -1,5 +1,5 @@
 {
-  "name": "openai-api-web",
+  "name": "gpt-web-frontend",
   "version": "0.1.0",
   "private": true,
   "scripts": {

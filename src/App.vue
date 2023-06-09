@@ -73,6 +73,10 @@
               Interrupt
             </button>
           </div>
+          <div class="ml-3 text-gray-300 flex items-center text-xs">
+            All data is saved in the browser's LocalStorage.
+            The GitHub repositry is&nbsp;<a href="https://github.com/shibh308/gpt-simple-frontend">here</a>.
+          </div>
         </div>
       </div>
     </div>
